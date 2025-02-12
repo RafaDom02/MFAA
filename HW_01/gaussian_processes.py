@@ -125,10 +125,36 @@ def simulate_gp(
     #  Use np.linalg.svd
     #
 
-    <YOUR CODE HERE>
+
+    # Usamos np.meshgrid para construir las mallas de los tiempos para evaluar el kernel
+    T, T_ = np.meshgrid(t, t)
+    # Calculamos la matriz de covarianza (o kernel) evaluando la función kernel_fn sobre las mallas
+    kernel_matrix = kernel_fn(T, T_)
+
+    # Realizamos la descomposición SVD de la matriz de covarianza
+    U, s, _ = np.linalg.svd(kernel_matrix)
+    S = np.diag(s)
+
+    # "Muestreamos" desde una distribución estándar Gaussiana
+    Z = np.random.randn(M, len(t))
+
+    # Calculamos el vector de la media para cada paso temporal
+    mean_vector = mean_fn(t)
+
+    # Generamos las muestras del proceso Gaussiano usando la descomposición SVD
+    X = Z @ (np.sqrt(S) @ U.T) + mean_vector
 
     return X, mean_vector, kernel_matrix
 
+def _kernel_function(
+        t: np.ndarray,
+        s: np.ndarray,
+        kernel_fn: Callable[[np.ndarray], np.ndarray]
+) -> np.ndarray:
+
+    tt, ss = np.meshgrid(t, s, indexing='ij')
+
+    return kernel_fn(tt, ss)
 
 def simulate_conditional_gp(
     t: np.ndarray,
@@ -210,7 +236,24 @@ def simulate_conditional_gp(
     # NOTE Use 'multivariate_normal' from numpy with "'method = 'svd'".
     # 'svd' is slower, but numerically more robust than 'cholesky'
 
-    <YOUR CODE HERE>
+    # Calculamos las matrices de covarianza: K_xx, K_xy, K_yy
+    K_xx = _kernel_function(t, t, kernel_fn)          # Covarianza entre todos los tiempos de t
+    K_xy = _kernel_function(t, t_obs, kernel_fn)      # Covarianza entre t y t_obs
+    K_yy = _kernel_function(t_obs, t_obs, kernel_fn)  # Covarianza entre t_obs y t_obs
+
+    # Inversión de la matriz K_yy usando descomposición de Cholesky para mayor eficiencia
+    L = np.linalg.cholesky(K_yy)
+    K_yy_inv = np.linalg.solve(L.T, np.linalg.solve(L, np.eye(len(t_obs))))
+
+    # Vector de la media condicional
+    mean_vector = mean_fn(t) + K_xy @ K_yy_inv @ (x_obs - mean_fn(t_obs))
+
+    # Matriz de covarianza condicional
+    kernel_matrix = K_xx - K_xy @ K_yy_inv @ K_xy.T
+
+    # Usamos 'method = svd' en np.random.multivariate_normal para mayor robustez numérica
+    X = np.random.default_rng().multivariate_normal(
+        mean_vector, kernel_matrix, size=M, method='svd')
 
     return X, mean_vector, kernel_matrix
 
@@ -266,10 +309,18 @@ def gp_regression(
     [1.00366515 2.02856104]
     """
 
-    # NOTE use 'np.linalg.solve' instead of inverting the matrix.
-    # This procedure is numerically more robust.
+    # Calculamos las matrices de covarianza
+    K_xx = kernel_fn(X, X)              # Covarianza entre los puntos de entrenamiento
+    K_xt = kernel_fn(X, X_test)         # Covarianza entre los puntos de entrenamiento y los de prueba
+    K_tt = kernel_fn(X_test, X_test)    # Covarianza entre los puntos de prueba
 
-    <YOUR CODE HERE>
+    # Usamos descomposición de Cholesky para resolver el sistema de forma eficiente
+    L = np.linalg.cholesky(K_xx + sigma2_noise * np.eye(len(X)))  # Descomposición Cholesky
+    alpha = np.linalg.solve(L.T, np.linalg.solve(L, y))  # Resolvemos el sistema para alpha
+
+    # Calculamos la media y la varianza de la predicción condicional
+    prediction_mean = K_xt.T @ alpha  # Media de la predicción
+    prediction_variance = K_tt - K_xt.T @ np.linalg.solve(L.T, np.linalg.solve(L, K_xt))  # Varianza de la predicción
 
     return prediction_mean, prediction_variance
 
