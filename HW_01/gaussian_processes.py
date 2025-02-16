@@ -241,9 +241,10 @@ def simulate_conditional_gp(
     K_xy = _kernel_function(t, t_obs, kernel_fn)      # Covarianza entre t y t_obs
     K_yy = _kernel_function(t_obs, t_obs, kernel_fn)  # Covarianza entre t_obs y t_obs
 
-    # Inversión de la matriz K_yy usando descomposición de Cholesky para mayor eficiencia
-    L = np.linalg.cholesky(K_yy)
-    K_yy_inv = np.linalg.solve(L.T, np.linalg.solve(L, np.eye(len(t_obs))))
+    # Inversión de K_yy usando SVD
+    U, S, Vt = np.linalg.svd(K_yy)
+    S_inv = np.diag(1 / S)          # Pseudo-inversa de S
+    K_yy_inv = Vt.T @ S_inv @ U.T
 
     # Vector de la media condicional
     mean_vector = mean_fn(t) + K_xy @ K_yy_inv @ (x_obs - mean_fn(t_obs))
@@ -315,8 +316,8 @@ def gp_regression(
     K_tt = kernel_fn(X_test, X_test)    # Covarianza entre los puntos de prueba
 
     # Usamos descomposición de Cholesky para resolver el sistema de forma eficiente
-    L = np.linalg.cholesky(K_xx + sigma2_noise * np.eye(len(X)))  # Descomposición Cholesky
-    alpha = np.linalg.solve(L.T, np.linalg.solve(L, y))  # Resolvemos el sistema para alpha
+    L = np.linalg.cholesky(K_xx + sigma2_noise * np.eye(len(X)))    # Descomposición Cholesky
+    alpha = np.linalg.solve(L.T, np.linalg.solve(L, y))             # Resolvemos el sistema para alpha
 
     # Calculamos la media y la varianza de la predicción condicional
     prediction_mean = K_xt.T @ alpha  # Media de la predicción
