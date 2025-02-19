@@ -97,6 +97,31 @@ def kernel_pca(
 
     """
 
-    # NOTE <YOUR CODE HERE>.
+    # Calculamos la matriz de kernel y sus medias
+    K = kernel(X, X)
+    K_mean_row = np.mean(K, axis=0, keepdims=True)  # Media por columnas
+    K_mean_col = np.mean(K, axis=1, keepdims=True)  # Media por filas
+    K_mean = np.mean(K)                             # Media global de la matriz
+
+    # Centramos la matriz de kernel
+    K_tilda = K - K_mean_row - K_mean_col + K_mean
+
+    # Hacemos el SVD de la matriz de kernel
+    alpha_eigenvecs, lambda_eigenvals, _ = np.linalg.svd(K_tilda, full_matrices=False)
+
+    # Normalizamos los eigenvectores
+    lambda_sqrt = np.sqrt(lambda_eigenvals)         # Raíz cuadrada de los valores propios
+    alpha_eigenvecs /= lambda_sqrt[np.newaxis, :]   # Normalización por columnas
+
+    # Calculamos la matriz de kernel para los datos de prueba
+    K_test = kernel(X_test, X)
+
+    # Centramos la matriz de kernel de prueba
+    K_test_mean_row = np.mean(K_test, axis=1, keepdims=True)    # Media por filas en X_test
+    K_test_mean_col = np.mean(K, axis=0, keepdims=True)         # Media por columnas en X
+    K_tilda_test = K_test - K_test_mean_row - K_test_mean_col + K_mean
+
+    # Proyectamos los datos de prueba en los componentes principales
+    X_test_hat = K_tilda_test @ alpha_eigenvecs
 
     return X_test_hat, lambda_eigenvals, alpha_eigenvecs
