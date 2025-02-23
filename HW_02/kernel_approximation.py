@@ -215,8 +215,15 @@ class NystroemFeaturesSampler():
         n_features_sampled: int
     ) -> np.ndarray:
         """Approximate the kernel matrix using Nystroem features."""
-
-        # NOTE <YOUR CODE HERE>.
+        # MY CODE
+        # Ajusta el modelo de Nystroem con los datos de entrada y el número de características seleccionadas
+        self.fit(X, n_features_sampled)
+        
+        # Transforma los datos de entrada en el espacio de características de Nystroem
+        X_nystroem = self.transform(X)
+        
+        # Calcula la aproximación de la matriz de kernel multiplicando la matriz transformada por su transpuesta
+        return X_nystroem @ X_nystroem.T
 
 
     def fit_transform(
@@ -234,9 +241,16 @@ class NystroemFeaturesSampler():
 
     def transform(self, X_prime: np.ndarray) -> np.ndarray:
         """Compute Nystroem features with precomputed quantities."""
+        # MY CODE
+        # Calcula la matriz de kernel entre los nuevos datos X_prime y las muestras reducidas utilizadas en la fase de ajuste.
+        kernel_matrix_X_X_reduced = self._kernel(X_prime, self._X_reduced)
 
-        # NOTE <YOUR CODE HERE>.
+        # Proyecta los datos en el espacio de Nystroem usando la matriz precomputada
+        # _sqrtm_pinv_reduced_kernel_matrix, que representa la inversa de la raíz 
+        # cuadrada de la matriz de kernel reducida.
+        X_prime_nystroem = kernel_matrix_X_X_reduced @ self._sqrtm_pinv_reduced_kernel_matrix
 
+        # Retorna las características de Nystroem transformadas.
         return X_prime_nystroem
 
 
